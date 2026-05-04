@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>今際 - 静的プレビュー</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    @font-face{
+      font-family: 'Digital Numbers';
+      src: url('assets/fonts/DigitalNumbers-Regular.woff') format('woff');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    :root{--sidebar:360px;--top-h:100px}
+    *{box-sizing:border-box}
+    body{font-family:'Noto Sans JP',sans-serif;margin:0;color:#111}
+    .top-nav{height:var(--top-h);display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid #eee}
+    .top-nav .items{display:flex;gap:0;position:relative;z-index:1}
+    .nav-item{width:360px;height:100px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+    .nav-item img{width:100%;height:100%;object-fit:cover;transform:rotate(180deg)}
+
+    .tab-select{position:absolute;inset:0;background:#00D82F;border:4px solid #00831C;border-radius:6px}
+    .tab-unselect{position:absolute;inset:0;background:#A7FFBA;border:4px solid #00831C;border-radius:6px}
+
+    .overlay-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:4;color:#111;font-size:48px;font-weight:700;pointer-events:none}
+    .nav-labels{position:absolute;left:18px;top:26px;display:flex;gap:28px;z-index:5}
+    .nav-labels p{margin:0;font-size:48px}
+
+    .layout{display:flex;gap:18px;padding:18px}
+    .layout.sidebar-hidden{grid-template-columns:1fr;}
+    .layout.sidebar-hidden .sidebar{display:none}
+    .layout.sidebar-hidden .main{flex:1 1 100%}
+    .sidebar{width:var(--sidebar)}
+    .card{background:#d9d9d9;height:100px;border-radius:10px;margin-bottom:18px;display:flex;align-items:center;justify-content:center;font-size:48px;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,background .12s ease}
+    .card:hover{transform:translateY(-4px);box-shadow:0 8px 18px rgba(0,0,0,0.12)}
+    .card.active{background:#00D82F;color:#05320b;border:3px solid #00831C;box-shadow:0 10px 24px rgba(0,131,28,0.12);transform:translateY(-6px)}
+    .card:focus{outline:3px solid rgba(0,131,28,0.18)}
+
+    .main{flex:1}
+    .panel{background:#d9d9d9;height:728px;border-radius:6px;padding:18px;position:relative}
+    .tab-panels .panel{display:none}
+    .tab-panels .panel.active{display:block}
+    .subpanels .subpanel{display:none}
+    .subpanels .subpanel.active{display:block}
+    .panel .header{background:#00d82f;height:100px;border-radius:6px;padding:20px;display:flex;align-items:center}
+    .panel .header h2{margin:0;font-size:48px}
+    .panel .content{margin-top:24px;font-size:40px}
+    .blue-words{color:#05f;font-family:'Digital Numbers',monospace;font-weight:700}
+    /* camera grid placeholders */
+    .camera-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .camera-frame{background:#111;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;height:280px;border:4px solid #333}
+    .camera-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(180deg,#222,#111);font-size:20px}
+    .camera-caption{padding:8px 12px;background:transparent;color:#fff;font-weight:700}
+    /* quiz layout */
+    .quiz-container{display:flex;flex-direction:column;height:100%}
+    .quiz-top{flex:0 0 33%;padding:18px;display:flex;flex-direction:column;gap:12px}
+    .question{font-size:28px}
+    .quiz-input{font-size:36px;padding:12px;border-radius:8px;border:2px solid #ccc;width:100%;background:#fff}
+    .quiz-keyboard{flex:1;display:flex;flex-direction:column;justify-content:flex-start;gap:12px;padding:6px 12px;margin-top:-16px}
+    .key-row{display:flex;gap:8px;justify-content:center}
+    .key{min-width:48px;padding:14px 10px;border-radius:8px;background:#f3f3f3;border:1px solid #bbb;font-size:18px}
+    .key.special{min-width:100px;background:#ddd}
+    .key:active{transform:translateY(1px)}
+    /* video thumbnails */
+    .video-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .video-thumb{background:#222;border-radius:8px;height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;border:3px solid #444}
+    .video-thumb .thumb-label{margin-top:8px;font-weight:700}
+    .video-code-box{position:absolute;right:24px;bottom:24px;display:flex;gap:8px;align-items:center}
+    .video-code-box input{padding:8px 10px;border-radius:6px;border:1px solid #ccc}
+    .video-code-box button{padding:8px 12px;border-radius:6px;background:#00D82F;border:1px solid #00831C;cursor:pointer}
+
+    /* sidebar video keypad (left bottom) */
+    .video-code-panel{position:relative;padding:12px}
+    .video-code-panel .code-display{width:200px;padding:10px;border-radius:6px;border:2px solid #ccc;background:#fff;font-size:20px;text-align:center}
+    .video-keypad{display:grid;grid-template-columns:repeat(3,56px);gap:8px;margin-top:8px}
+    .video-key{width:56px;height:48px;border-radius:8px;background:#f3f3f3;border:1px solid #bbb;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer}
+    .video-key.special{background:#ddd}
+    aside.sidebar{position:relative}
+    .video-code-panel.container-bottom{position:absolute;left:12px;bottom:18px}
+
+    /* responsive */
+    @media(max-width:1000px){:root{--sidebar:280px}.nav-item{width:200px;height:60px}.nav-labels p{font-size:20px}}
+    /* hide header (green rectangle) for camera and video panels */
+    .panel[data-panel="camera"] .header,
+    .panel[data-panel="video"] .header { display: none; }
+  </style>
+</head>
+<body>
+  <header class="top-nav">
+    <div class="items" aria-hidden="true">
+      <div class="nav-item" data-tab="rules">
+        <div class="tab-select" aria-hidden="true"></div>
+        <div class="overlay-label">ルール</div>
+      </div>
+      <div class="nav-item" data-tab="camera">
+        <div class="tab-unselect" aria-hidden="true"></div>
+        <div class="overlay-label">カメラ</div>
+      </div>
+      <div class="nav-item" data-tab="quiz">
+        <div class="tab-unselect" aria-hidden="true"></div>
+        <div class="overlay-label">クイズ</div>
+      </div>
+      <div class="nav-item" data-tab="video">
+        <div class="tab-unselect" aria-hidden="true"></div>
+        <div class="overlay-label">ビデオ</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="card" data-page="1">1st</div>
+      <div class="card" data-page="2">2nd</div>
+      <div class="card" data-page="3">3rd</div>
+      <div class="card" data-page="4">4th</div>
+      <div class="card" data-page="5">last</div>
+      <div class="video-code-panel container-bottom" id="video-sidebar-keypad" style="display:none;">
+        <div class="code-display" id="video-code-display" aria-live="polite">&nbsp;</div>
+        <div class="video-keypad" role="application" aria-label="ビデオキー">
+          <div class="video-key" data-key="1">1</div>
+          <div class="video-key" data-key="2">2</div>
+          <div class="video-key" data-key="3">3</div>
+          <div class="video-key" data-key="4">4</div>
+          <div class="video-key" data-key="5">5</div>
+          <div class="video-key" data-key="6">6</div>
+          <div class="video-key" data-key="7">7</div>
+          <div class="video-key" data-key="8">8</div>
+          <div class="video-key" data-key="9">9</div>
+          <div class="video-key special" data-key="Back">⌫</div>
+          <div class="video-key" data-key="0">0</div>
+          <div class="video-key special" data-key="Enter">OK</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="tab-panels">
+        <section class="panel active" data-panel="rules">
+          <div class="header"><h2></h2></div>
+          <div class="subpanels">
+            <div class="subpanel active" data-page="1" data-title="ルール">
+              <div class="content">
+                <ul>
+                  <li>ゲームの制限時間は <span class="blue-words">SOMIN</span> 間である</li>
+                </ul>
+              </div>
+            </div>
+            <div class="subpanel" data-page="2" data-title="ルール - ページ2">
+              <div class="content"><p>ルール - ページ2（プレースホルダ）</p></div>
+            </div>
+            <div class="subpanel" data-page="3" data-title="ルール - ページ3">
+              <div class="content"><p>ルール - ページ3（プレースホルダ）</p></div>
+            </div>
+            <div class="subpanel" data-page="4" data-title="ルール - ページ4">
+              <div class="content"><p>ルール - ページ4（プレースホルダ）</p></div>
+            </div>
+            <div class="subpanel" data-page="5" data-title="ルール - ページ5">
+              <div class="content"><p>ルール - ページ5（プレースホルダ）</p></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="camera">
+          <div class="header"><h2>カメラビュー</h2></div>
+          <div class="subpanels">
+            <div class="subpanel active" data-page="1" data-title="カメラビュー - 1st">
+              <div class="content camera-grid">
+                <div class="camera-frame" data-index="1"><div class="camera-placeholder"></div><div class="camera-caption">Cam A</div></div>
+                <div class="camera-frame" data-index="2"><div class="camera-placeholder"></div><div class="camera-caption">Cam B</div></div>
+                <div class="camera-frame" data-index="3"><div class="camera-placeholder"></div><div class="camera-caption">Cam C</div></div>
+                <div class="camera-frame" data-index="4"><div class="camera-placeholder"></div><div class="camera-caption">Cam D</div></div>
+              </div>
+            </div>
+            <div class="subpanel" data-page="2" data-title="カメラビュー - 2nd">
+              <div class="content camera-grid">
+                <div class="camera-frame" data-index="1"><div class="camera-placeholder"></div><div class="camera-caption">Cam A</div></div>
+                <div class="camera-frame" data-index="2"><div class="camera-placeholder"></div><div class="camera-caption">Cam B</div></div>
+                <div class="camera-frame" data-index="3"><div class="camera-placeholder"></div><div class="camera-caption">Cam C</div></div>
+                <div class="camera-frame" data-index="4"><div class="camera-placeholder"></div><div class="camera-caption">Cam D</div></div>
+              </div>
+            </div>
+            <div class="subpanel" data-page="3" data-title="カメラビュー - 3rd">
+              <div class="content camera-grid">
+                <div class="camera-frame" data-index="1"><div class="camera-placeholder"></div><div class="camera-caption">Cam A</div></div>
+                <div class="camera-frame" data-index="2"><div class="camera-placeholder"></div><div class="camera-caption">Cam B</div></div>
+                <div class="camera-frame" data-index="3"><div class="camera-placeholder"></div><div class="camera-caption">Cam C</div></div>
+                <div class="camera-frame" data-index="4"><div class="camera-placeholder"></div><div class="camera-caption">Cam D</div></div>
+              </div>
+            </div>
+            <div class="subpanel" data-page="4" data-title="カメラビュー - 4th">
+              <div class="content camera-grid">
+                <div class="camera-frame" data-index="1"><div class="camera-placeholder"></div><div class="camera-caption">Cam A</div></div>
+                <div class="camera-frame" data-index="2"><div class="camera-placeholder"></div><div class="camera-caption">Cam B</div></div>
+                <div class="camera-frame" data-index="3"><div class="camera-placeholder"></div><div class="camera-caption">Cam C</div></div>
+                <div class="camera-frame" data-index="4"><div class="camera-placeholder"></div><div class="camera-caption">Cam D</div></div>
+              </div>
+            </div>
+            <div class="subpanel" data-page="5" data-title="カメラビュー - last">
+              <div class="content camera-grid">
+                <div class="camera-frame" data-index="1"><div class="camera-placeholder"></div><div class="camera-caption">Cam A</div></div>
+                <div class="camera-frame" data-index="2"><div class="camera-placeholder"></div><div class="camera-caption">Cam B</div></div>
+                <div class="camera-frame" data-index="3"><div class="camera-placeholder"></div><div class="camera-caption">Cam C</div></div>
+                <div class="camera-frame" data-index="4"><div class="camera-placeholder"></div><div class="camera-caption">Cam D</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="quiz">
+          <div class="header"><h2>クイズ</h2></div>
+          <div class="quiz-container">
+            <div class="quiz-top">
+              <div class="question">問題: ここに問題文が表示されます。</div>
+              <input id="quiz-answer" class="quiz-input" type="text" readonly aria-label="解答入力欄" placeholder="ここをキーボードで入力してください">
+            </div>
+            <div class="quiz-keyboard" role="application" aria-label="オンスクリーンキーボード">
+              <div class="key-row">
+                <button class="key" data-key="1">1</button>
+                <button class="key" data-key="2">2</button>
+                <button class="key" data-key="3">3</button>
+                <button class="key" data-key="4">4</button>
+                <button class="key" data-key="5">5</button>
+                <button class="key" data-key="6">6</button>
+                <button class="key" data-key="7">7</button>
+                <button class="key" data-key="8">8</button>
+                <button class="key" data-key="9">9</button>
+                <button class="key" data-key="0">0</button>
+              </div>
+              <div class="key-row">
+                <button class="key" data-key="Q">Q</button>
+                <button class="key" data-key="W">W</button>
+                <button class="key" data-key="E">E</button>
+                <button class="key" data-key="R">R</button>
+                <button class="key" data-key="T">T</button>
+                <button class="key" data-key="Y">Y</button>
+                <button class="key" data-key="U">U</button>
+                <button class="key" data-key="I">I</button>
+                <button class="key" data-key="O">O</button>
+                <button class="key" data-key="P">P</button>
+              </div>
+              <div class="key-row">
+                <button class="key" data-key="A">A</button>
+                <button class="key" data-key="S">S</button>
+                <button class="key" data-key="D">D</button>
+                <button class="key" data-key="F">F</button>
+                <button class="key" data-key="G">G</button>
+                <button class="key" data-key="H">H</button>
+                <button class="key" data-key="J">J</button>
+                <button class="key" data-key="K">K</button>
+                <button class="key" data-key="L">L</button>
+              </div>
+              <div class="key-row">
+                <button class="key" data-key="Z">Z</button>
+                <button class="key" data-key="X">X</button>
+                <button class="key" data-key="C">C</button>
+                <button class="key" data-key="V">V</button>
+                <button class="key" data-key="B">B</button>
+                <button class="key" data-key="N">N</button>
+                <button class="key" data-key="M">M</button>
+                <button class="key special" data-key="Back">⌫</button>
+              </div>
+              <div class="key-row">
+                <button class="key special" data-key="Space">Space</button>
+                <button class="key special" data-key="Enter">Enter</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="video">
+          <div class="header"><h2>ビデオ</h2></div>
+          <div class="subpanels">
+            <div class="subpanel active" data-page="1" data-title="ビデオ - 1st">
+              <div class="content">
+                <div class="video-grid" data-grid>
+                  <div class="video-thumb" data-id="v1"><div class="thumb-preview">Thumb 1</div><div class="thumb-label">Video 1</div></div>
+                  <div class="video-thumb" data-id="v2"><div class="thumb-preview">Thumb 2</div><div class="thumb-label">Video 2</div></div>
+                  <div class="video-thumb" data-id="v3"><div class="thumb-preview">Thumb 3</div><div class="thumb-label">Video 3</div></div>
+                  <div class="video-thumb" data-id="v4"><div class="thumb-preview">Thumb 4</div><div class="thumb-label">Video 4</div></div>
+                  <div class="video-thumb" data-id="v5"><div class="thumb-preview">Thumb 5</div><div class="thumb-label">Video 5</div></div>
+                  <div class="video-thumb" data-id="v6"><div class="thumb-preview">Thumb 6</div><div class="thumb-label">Video 6</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="subpanel" data-page="2" data-title="ビデオ - 2nd">
+              <div class="content">
+                <div class="video-grid" data-grid>
+                  <div class="video-thumb"><div class="thumb-preview">Thumb A</div><div class="thumb-label">Video A</div></div>
+                  <div class="video-thumb"><div class="thumb-preview">Thumb B</div><div class="thumb-label">Video B</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script>
+    // Tab switching logic
+    (function(){
+      const navItems = document.querySelectorAll('.nav-item[data-tab]');
+      const panels = document.querySelectorAll('.tab-panels .panel');
+      function activate(tab){
+        navItems.forEach(n=>{
+          const rect = n.querySelector('.tab-select, .tab-unselect');
+          if(n.dataset.tab===tab){
+            n.classList.add('active');
+            if(rect){ rect.className = 'tab-select'; }
+          } else {
+            n.classList.remove('active');
+            if(rect){ rect.className = 'tab-unselect'; }
+          }
+        });
+        panels.forEach(p=> p.classList.toggle('active', p.dataset.panel===tab));
+
+        const layoutEl = document.querySelector('.layout');
+        const sideButtons = document.querySelectorAll('.sidebar .card[data-page]');
+
+        if(tab === 'quiz'){
+          // hide sidebar for quiz tab and clear sidebar active states
+          if(layoutEl) layoutEl.classList.add('sidebar-hidden');
+          sideButtons.forEach(b=> b.classList.remove('active'));
+          // ensure header for quiz is default (from its panel)
+          const activePanel = document.querySelector('.tab-panels .panel.active');
+          if(activePanel){
+            const headerH2 = activePanel.querySelector('.header h2');
+            const firstSub = activePanel.querySelector('.subpanel[data-page="1"]');
+            if(firstSub && firstSub.dataset.title && headerH2){ headerH2.textContent = firstSub.dataset.title; }
+          }
+        } else if(tab === 'video') {
+          // show sidebar and switch to video-specific two-item labels
+          if(layoutEl) layoutEl.classList.remove('sidebar-hidden');
+          sideButtons.forEach((b, i)=>{
+            if(i===0){ b.style.display='flex'; b.dataset.page='1'; b.textContent = 'CPでの行動'; }
+            else if(i===1){ b.style.display='flex'; b.dataset.page='2'; b.textContent = 'ルール説明'; }
+            else { b.style.display='none'; }
+            b.classList.toggle('active', b.dataset.page==='1');
+          });
+          // ensure camera panel shows subpanel page 1 by default
+          const activePanel = document.querySelector('.tab-panels .panel.active');
+          if(activePanel){
+            const subpanels = activePanel.querySelectorAll('.subpanel');
+            subpanels.forEach(s=> s.classList.toggle('active', s.dataset.page==='1'));
+            const activeSub = activePanel.querySelector('.subpanel.active');
+            const headerH2 = activePanel.querySelector('.header h2');
+            if(activeSub && activeSub.dataset.title && headerH2){ headerH2.textContent = activeSub.dataset.title; }
+          }
+          // show video keypad in sidebar
+          const vkp = document.getElementById('video-sidebar-keypad');
+          if(vkp) vkp.style.display = 'block';
+        } else {
+          // show sidebar and reset to subpanel page 1
+          if(layoutEl) layoutEl.classList.remove('sidebar-hidden');
+          const activePanel = document.querySelector('.tab-panels .panel.active');
+          if(activePanel){
+            const sp = activePanel.querySelector('.subpanels');
+            if(sp) sp.style.display = '';
+            const subpanels = activePanel.querySelectorAll('.subpanel');
+            subpanels.forEach(s=> s.classList.toggle('active', s.dataset.page==='1'));
+            const activeSub = activePanel.querySelector('.subpanel.active');
+            const headerH2 = activePanel.querySelector('.header h2');
+            if(activeSub && activeSub.dataset.title && headerH2){ headerH2.textContent = activeSub.dataset.title; }
+          }
+          // restore default sidebar labels and visibility
+          const defaultLabels = ['1st','2nd','3rd','4th','last'];
+          sideButtons.forEach((b,i)=>{ b.style.display='flex'; b.dataset.page = String(i+1); b.textContent = defaultLabels[i] || ('page'+(i+1)); b.classList.toggle('active', b.dataset.page==='1'); });
+          // hide video keypad if present
+          const vkp2 = document.getElementById('video-sidebar-keypad');
+          if(vkp2) vkp2.style.display = 'none';
+        }
+      }
+      navItems.forEach(n=> n.addEventListener('click', ()=> activate(n.dataset.tab)));
+      // set initial
+      if(navItems.length) activate(navItems[0].dataset.tab);
+    })();
+
+    // Sidebar page switching within active tab
+    (function(){
+      const sideButtons = document.querySelectorAll('.sidebar .card[data-page]');
+      function activatePage(page){
+        // highlight sidebar
+        sideButtons.forEach(b=> b.classList.toggle('active', b.dataset.page===page));
+        // find active top panel
+        const activePanel = document.querySelector('.tab-panels .panel.active');
+        if(!activePanel) return;
+        const subpanels = activePanel.querySelectorAll('.subpanel');
+        subpanels.forEach(s=> s.classList.toggle('active', s.dataset.page===page));
+        // update header title based on active subpanel's data-title
+        const activeSub = activePanel.querySelector('.subpanel.active');
+        const headerH2 = activePanel.querySelector('.header h2');
+        if(activeSub && activeSub.dataset.title && headerH2){ headerH2.textContent = activeSub.dataset.title; }
+      }
+      sideButtons.forEach(b=> b.addEventListener('click', ()=> activatePage(b.dataset.page)));
+      // default: activate page 1
+      if(sideButtons.length) activatePage('1');
+    })();
+
+    // Quiz keyboard handlers
+    (function(){
+      const keys = document.querySelectorAll('.quiz-keyboard .key');
+      const input = document.getElementById('quiz-answer');
+      if(!input) return;
+      function handleKey(k){
+        if(k==='Back'){
+          input.value = input.value.slice(0,-1);
+          return;
+        }
+        if(k==='Enter'){
+          // placeholder submit action
+          console.log('Submit answer:', input.value);
+          return;
+        }
+        if(k==='Space'){
+          input.value += ' ';
+          return;
+        }
+        input.value += k;
+      }
+      keys.forEach(btn=>{
+        btn.addEventListener('click', e=>{ handleKey(btn.dataset.key); e.preventDefault(); });
+        btn.addEventListener('touchstart', e=>{ handleKey(btn.dataset.key); e.preventDefault(); });
+      });
+    })();
+
+    // Video keypad in sidebar: tap digits to build code, Enter to add a thumbnail
+    (function(){
+      function addThumbToGrid(gridEl, code){
+        const id = 'new-' + Date.now();
+        const thumb = document.createElement('div');
+        thumb.className = 'video-thumb';
+        thumb.dataset.id = id;
+        thumb.innerHTML = `<div class="thumb-preview">New</div><div class="thumb-label">Code: ${code}</div>`;
+        gridEl.appendChild(thumb);
+        // scroll into view
+        thumb.scrollIntoView({behavior:'smooth',block:'nearest'});
+      }
+
+      const display = document.getElementById('video-code-display');
+      const keypad = document.querySelectorAll('.video-key');
+      let buffer = '';
+      function refreshDisplay(){
+        if(!display) return;
+        display.textContent = buffer || '\u00A0';
+      }
+
+      keypad.forEach(k=>{
+        k.addEventListener('click', ()=>{
+          const key = k.dataset.key;
+          if(key === 'Back'){
+            buffer = buffer.slice(0,-1);
+            refreshDisplay();
+            return;
+          }
+          if(key === 'Enter'){
+            if(!/^[0-9]+$/.test(buffer)) { alert('数字を入力してください'); return; }
+            const activePanel = document.querySelector('.tab-panels .panel.active');
+            if(!activePanel) return;
+            const grid = activePanel.querySelector('[data-grid]');
+            if(!grid) return;
+            addThumbToGrid(grid, buffer);
+            buffer = '';
+            refreshDisplay();
+            return;
+          }
+          // digit
+          if(/^[0-9]$/.test(key)){
+            buffer += key;
+            // limit length to 10
+            if(buffer.length>10) buffer = buffer.slice(0,10);
+            refreshDisplay();
+          }
+        });
+      });
+
+      // expose show/hide from activate() by toggling display of #video-sidebar-keypad
+    })();
+  </script>
+</body>
+</html>
