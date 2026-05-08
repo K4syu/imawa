@@ -60,24 +60,33 @@
         <section class="panel active" data-panel="rules">
           <div class="header"><h2></h2></div>
           <div class="subpanels">
-            <div class="subpanel active" data-page="1" data-title="ルール">
+            <div class="subpanel active" data-page="1" data-title="タイムルール">
               <div class="content">
                 <ul>
                   <li>ゲームの制限時間は <span class="blue-words">SOMIN</span> 間である</li>
                 </ul>
               </div>
             </div>
-            <div class="subpanel" data-page="2" data-title="ルール - ページ2">
-              <div class="content"><p>ルール - ページ2（プレースホルダ）</p></div>
+            <div class="subpanel" data-page="2" data-title="シリトリヨセ">
+              <div class="content">
+                <ul>
+                  <li>しりとりのルールに従って、アイテムを取り寄せることができる</li>
+                  <li>取り寄せる対象と、そのために途中のしりとりで使用するアイテムをシリトリヨセシートに記入することで、しりとりの始点のアイテムと同じ場所に対象が取り寄せられる</li>
+                <ul type="circle">  
+                  <li>この時、取り寄せる対象以外のアイテムは消滅する</li>
+                  <li>途中のしりとりで使用することができるアイテムは3種類まで</li>
+                </ul>
+                  <li>シリトリヨセで使用できるのは、隣り合う<span class="blue-words">BOX</span>の中にある赤い丸が付いたアイテムだけである</li>
+                </ul>
             </div>
-            <div class="subpanel" data-page="3" data-title="ルール - ページ3">
-              <div class="content"><p>ルール - ページ3（プレースホルダ）</p></div>
+            <div class="subpanel" data-page="3" data-title="3dプリンター">
+              <div class="content"><p>3dプリンター - ページ3（プレースホルダ）</p></div>
             </div>
-            <div class="subpanel" data-page="4" data-title="ルール - ページ4">
-              <div class="content"><p>ルール - ページ4（プレースホルダ）</p></div>
+            <div class="subpanel" data-page="4" data-title="ワードチェンジ">
+              <div class="content"><p>ワードチェンジ - ページ4（プレースホルダ）</p></div>
             </div>
-            <div class="subpanel" data-page="5" data-title="ルール - ページ5">
-              <div class="content"><p>ルール - ページ5（プレースホルダ）</p></div>
+            <div class="subpanel" data-page="5" data-title="ライトルール">
+              <div class="content"><p>ライトルール - ページ5（プレースホルダ）</p></div>
             </div>
           </div>
         </section>
@@ -283,9 +292,15 @@
             const headerH2 = activePanel.querySelector('.header h2');
             if(activeSub && activeSub.dataset.title && headerH2){ headerH2.textContent = activeSub.dataset.title; }
           }
-          // restore default sidebar labels and visibility
-          const defaultLabels = ['1st','2nd','3rd','4th','last'];
-          sideButtons.forEach((b,i)=>{ b.style.display='flex'; b.dataset.page = String(i+1); b.textContent = defaultLabels[i] || ('page'+(i+1)); b.classList.toggle('active', b.dataset.page==='1'); });
+          // set sidebar labels based on the active top tab
+          if(tab === 'rules'){
+            const ruleLabels = ['タイムルール','シリトリヨセ','3dプリンター','ワードチェンジ','ライトルール'];
+            sideButtons.forEach((b,i)=>{ b.style.display='flex'; b.dataset.page = String(i+1); b.textContent = ruleLabels[i] || ('ルール'+(i+1)); b.classList.toggle('active', b.dataset.page==='1'); });
+          } else {
+            // camera and other tabs keep original labels
+            const defaultLabels = ['1st','2nd','3rd','4th','last'];
+            sideButtons.forEach((b,i)=>{ b.style.display='flex'; b.dataset.page = String(i+1); b.textContent = defaultLabels[i] || ('page'+(i+1)); b.classList.toggle('active', b.dataset.page==='1'); });
+          }
           // hide video keypad if present
           const vkp2 = document.getElementById('video-sidebar-keypad');
           if(vkp2) vkp2.style.display = 'none';
@@ -360,6 +375,54 @@
       const display = document.getElementById('video-code-display');
       const keypad = document.querySelectorAll('.video-key');
       let buffer = '';
+      // mapping from entered numeric code to video-thumb data-id
+      const codeMap = {
+        '101': 'v101',
+        '102': 'v102',
+        '103': 'v103',
+        '104': 'v104',
+        '105': 'v105',
+        '106': 'v106'
+      };
+
+      function addMappedThumbToGrid(id){
+        if(!id) return;
+        // target the video panel explicitly to avoid relying on .panel.active
+        const videoPanel = document.querySelector('.tab-panels .panel[data-panel="video"]');
+        if(!videoPanel) return;
+        // prefer the active subpanel within video, otherwise page 1
+        const activeSub = videoPanel.querySelector('.subpanel.active') || videoPanel.querySelector('.subpanel[data-page="1"]');
+        if(!activeSub) return;
+        const grid = activeSub.querySelector('[data-grid]');
+        if(!grid) return;
+
+        // prevent adding if a thumb with the same original id is already present
+        const already = Array.from(grid.querySelectorAll('.video-thumb')).some(el=>{
+          // check original source id stored in data-original or the element's data-id
+          const original = el.dataset.original || '';
+          const did = el.dataset.id || '';
+          return original === id || did === id || did.startsWith(id + '-');
+        });
+        if(already){
+          if(display) { display.textContent = '既に追加済み'; setTimeout(refreshDisplay,1200); }
+          return;
+        }
+
+        const thumb = document.querySelector(`.video-thumb[data-id="${id}"]`);
+        const clone = document.createElement('div');
+        clone.className = 'video-thumb';
+        // store both a unique id and the original source id for future checks
+        clone.dataset.id = id + '-copy-' + Date.now();
+        clone.dataset.original = id;
+        if(thumb){
+          clone.innerHTML = thumb.innerHTML;
+        } else {
+          clone.innerHTML = `<div class="thumb-preview">New</div><div class="thumb-label">Code: ${id}</div>`;
+        }
+        grid.appendChild(clone);
+        clone.scrollIntoView({behavior:'smooth',block:'nearest'});
+        if(display) { display.textContent = '追加しました'; setTimeout(refreshDisplay,1200); }
+      }
       function refreshDisplay(){
         if(!display) return;
         display.textContent = buffer || '\u00A0';
@@ -375,13 +438,17 @@
           }
           if(key === 'Enter'){
             if(!/^[0-9]+$/.test(buffer)) { alert('数字を入力してください'); return; }
-            const activePanel = document.querySelector('.tab-panels .panel.active');
-            if(!activePanel) return;
-            const grid = activePanel.querySelector('[data-grid]');
-            if(!grid) return;
-            addThumbToGrid(grid, buffer);
+            // if buffer matches a mapped code, show the corresponding small video preview
+            const mapped = codeMap[buffer];
+            if(mapped){
+              addMappedThumbToGrid(mapped);
+              buffer = '';
+              refreshDisplay();
+              return;
+            }
+            // unmapped code: do nothing and show feedback
+            if(display){ display.textContent = '該当なし'; setTimeout(refreshDisplay,1200); }
             buffer = '';
-            refreshDisplay();
             return;
           }
           // digit
